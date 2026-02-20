@@ -1,0 +1,12 @@
+version: '3.8'
+services:
+  opm:
+    build:
+      dockerfile: ./Dockerfile 
+    volumes:
+      - "./src/:/opt/project/src"
+      - "./data/:/opt/project/data"
+      - "./config/:/opt/project/config"
+      - "./examples/:/opt/project/examples"
+      - "./notebooks/:/opt/project/notebooks"
+    tty: true
