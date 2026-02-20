@@ -1,0 +1,27 @@
+TEST METRICS (Tourism v2)
+============================================================
+Model        : examples/tourism_model.keras
+Preprocessor : artifacts/tourism_v2/preprocessor.joblib
+Test file    : data/tourism_testing.csv
+Threshold    : 0.43
+
+Accuracy    : 0.7750 (77.50%)
+Precision   : 0.9231 (92.31%)
+Recall      : 0.6000 (60.00%)
+F1-Score    : 0.7273
+Specificity : 0.9500 (95.00%)
+AUC         : 0.8597
+
+Confusion Matrix:
+[[57  3]
+ [24 36]]
+
+Classification Report:
+              precision    recall  f1-score   support
+
+           0     0.7037    0.9500    0.8085        60
+           1     0.9231    0.6000    0.7273        60
+
+    accuracy                         0.7750       120
+   macro avg     0.8134    0.7750    0.7679       120
+weighted avg     0.8134    0.7750    0.7679       120

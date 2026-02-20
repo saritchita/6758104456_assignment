@@ -25,9 +25,9 @@ EPOCHS       = 300
 BATCH_SIZE   = 64
 LEARNING_RATE = 1e-3
 
-PATIENCE_ES  = 50
-PATIENCE_LR  = 15
-MIN_LR       = 1e-6
+PATIENCE_ES  = 35
+PATIENCE_LR  = 12
+MIN_LR       = 5e-4  
 
 THRESH_MIN   = 0.10
 THRESH_MAX   = 0.80
@@ -172,25 +172,24 @@ print(f"Preprocessor saved. Transformed feature count: {X_train_p.shape[1]}")
 # Now each layer feeds into the next as intended.
 # =========================
 def build_model(n_features: int) -> keras.Model:
-    l2 = keras.regularizers.l2(1e-4)
+    l2 = keras.regularizers.l2(3e-4)
 
     inputs = keras.Input(shape=(n_features,))
 
-    x = keras.layers.Dense(128, kernel_regularizer=l2)(inputs)  # ← inputs
+    x = keras.layers.Dense(128, kernel_regularizer=l2)(inputs)  
+    x = keras.layers.BatchNormalization()(x)   
     x = keras.layers.Activation("relu")(x)
-    x = keras.layers.Dropout(0.10)(x)
+    x = keras.layers.Dropout(0.3)(x)
 
-    x = keras.layers.Dense(256, kernel_regularizer=l2)(x)       # ← x (was inputs — BUG)
+    x = keras.layers.Dense(128, kernel_regularizer=l2)(x)    
+    x = keras.layers.BatchNormalization()(x)   
     x = keras.layers.Activation("relu")(x)
-    x = keras.layers.Dropout(0.10)(x)
-
-    x = keras.layers.Dense(128, kernel_regularizer=l2)(x)       # ← x (was inputs — BUG)
-    x = keras.layers.Activation("relu")(x)
-    x = keras.layers.Dropout(0.10)(x)
+    x = keras.layers.Dropout(0.15)(x)
 
     x = keras.layers.Dense(64, kernel_regularizer=l2)(x)
+    x = keras.layers.BatchNormalization()(x)   
     x = keras.layers.Activation("relu")(x)
-    x = keras.layers.Dropout(0.10)(x)
+    x = keras.layers.Dropout(0.2)(x)
 
     outputs = keras.layers.Dense(1, activation="sigmoid")(x)
     return keras.Model(inputs, outputs)
@@ -278,11 +277,20 @@ history = model.fit(
 
 
 # =========================
+# SAVE TRAINING HISTORY (for plotting in inference)
+# =========================
+history_path = os.path.join(ARTIFACT_DIR, "history.json")
+with open(history_path, "w") as f:
+    json.dump({k: [float(v) for v in vals] for k, vals in history.history.items()}, f, indent=2)
+print(f"Training history saved: {history_path}")
+
+
+# =========================
 # THRESHOLD OPTIMISATION ON VAL (fine-grained sweep)
 # =========================
 val_proba = model.predict(X_val_p, verbose=0).flatten()
 
-best_t, best_f1 = 0.4, -1.0
+best_t, best_f1 = 0.5, -1.0
 for t in np.arange(THRESH_MIN, THRESH_MAX, THRESH_STEP):
     preds = (val_proba >= t).astype(int)
     f     = f1_score(y_val, preds, zero_division=0)
@@ -339,4 +347,5 @@ print(f"  Model        : {MODEL_PATH}")
 print(f"  Best model   : {ARTIFACT_DIR}/best_model.keras")
 print(f"  Preprocessor : {ARTIFACT_DIR}/preprocessor.joblib")
 print(f"  Threshold    : {ARTIFACT_DIR}/threshold.json")
+print(f"  History      : {ARTIFACT_DIR}/history.json")
 print(f"  Val report   : {report_path}")

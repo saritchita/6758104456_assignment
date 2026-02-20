@@ -1,12 +1,11 @@
-"""
-Tourism Inference Script — matches assignment5training.py (v2)
-- Loads preprocessor.joblib (ColumnTransformer pipeline) from artifacts/tourism_v2
-- Loads threshold.json (F1-optimised) from artifacts/tourism_v2
-- Loads model from examples/tourism_model.keras
-  * Model was trained with Focal Loss + SMOTE — no action needed in inference,
-    predict() does not use the loss function, only the learned weights
-- Outputs metrics, confusion matrices, predictions CSV, and test_metrics.txt
-"""
+#Tourism Inference Script — matches assignment5training.py (v2)
+#- Loads preprocessor.joblib (ColumnTransformer pipeline) from artifacts/tourism_v2
+#- Loads threshold.json (F1-optimised) from artifacts/tourism_v2
+#- Loads model from examples/tourism_model.keras
+#  * Model was trained with Focal Loss + SMOTE — no action needed in inference,
+#    predict() does not use the loss function, only the learned weights
+#- Outputs metrics, confusion matrices, predictions CSV, and test_metrics.txt
+
 
 # =========================
 # CONFIG
@@ -112,10 +111,20 @@ def main():
     # -------------------------
     preprocessor_path = os.path.join(ARTIFACT_DIR, "preprocessor.joblib")
     threshold_path    = os.path.join(ARTIFACT_DIR, "threshold.json")
+    history_path      = os.path.join(ARTIFACT_DIR, "history.json")
 
     preprocessor = joblib.load(preprocessor_path)
     with open(threshold_path, "r") as f:
         threshold = json.load(f)["threshold"]
+
+    # Load training history if available
+    history = None
+    if os.path.exists(history_path):
+        with open(history_path, "r") as f:
+            history = json.load(f)
+        print(f"Loaded training history : {history_path}")
+    else:
+        print(f"No history file found at {history_path} — skipping training graphs")
 
     print(f"\nLoaded preprocessor : {preprocessor_path}")
     print(f"Loaded threshold    : {threshold:.2f}")
@@ -209,7 +218,87 @@ def main():
     print(f"  Specificity : {m['specificity']:.4f} ({m['specificity']*100:.2f}%)")
 
     # -------------------------
-    # 7. Confusion matrix plots
+    # 7. Training / Validation graphs  (blue=train, orange=val — side-by-side style)
+    # -------------------------
+    TRAIN_COLOR = "#1f77b4"   # blue
+    VAL_COLOR   = "#ff7f0e"   # orange
+    LINE_W      = 1.5
+
+    def style_ax(ax, title, ylabel):
+        ax.set_title(title, fontsize=13)
+        ax.set_xlabel("Epoch", fontsize=11)
+        ax.set_ylabel(ylabel, fontsize=11)
+        ax.legend(fontsize=10)
+        ax.spines["top"].set_visible(False)
+        ax.spines["right"].set_visible(False)
+
+    if history:
+        epochs     = range(1, len(history.get("loss", [])) + 1)
+        has_acc    = "accuracy"  in history and "val_accuracy"  in history
+        has_auc    = "auc"       in history and "val_auc"       in history
+        has_f1     = "val_f1"    in history
+        has_prec   = "precision" in history and "val_precision" in history
+        has_recall = "recall"    in history and "val_recall"    in history
+
+        # ── Graph 1: Model Accuracy + Model Loss  (matches reference style) ──
+        fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(14, 5))
+
+        if has_acc:
+            ax1.plot(epochs, history["accuracy"],     color=TRAIN_COLOR, linewidth=LINE_W, label="Train Accuracy")
+            ax1.plot(epochs, history["val_accuracy"], color=VAL_COLOR,   linewidth=LINE_W, label="Val Accuracy")
+        style_ax(ax1, "Model Accuracy", "Accuracy")
+
+        ax2.plot(epochs, history["loss"],     color=TRAIN_COLOR, linewidth=LINE_W, label="Train Loss")
+        ax2.plot(epochs, history["val_loss"], color=VAL_COLOR,   linewidth=LINE_W, label="Val Loss")
+        style_ax(ax2, "Model Loss", "Loss")
+
+        plt.tight_layout()
+        g1_path = os.path.join(OUTPUT_DIR, "graph_accuracy_loss.png")
+        plt.savefig(g1_path, dpi=200, bbox_inches="tight")
+        plt.close()
+        print(f"Saved: {g1_path}")
+
+        # ── Graph 2: Model AUC + Validation F1 ───────────────────────────────
+        if has_auc or has_f1:
+            fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(14, 5))
+
+            if has_auc:
+                ax1.plot(epochs, history["auc"],     color=TRAIN_COLOR, linewidth=LINE_W, label="Train AUC")
+                ax1.plot(epochs, history["val_auc"], color=VAL_COLOR,   linewidth=LINE_W, label="Val AUC")
+            style_ax(ax1, "Model AUC", "AUC")
+
+            if has_f1:
+                ax2.plot(epochs, history["val_f1"], color=VAL_COLOR, linewidth=LINE_W, label="Val F1")
+                ax2.axhline(y=max(history["val_f1"]), color="gray", linestyle=":",
+                            linewidth=1, label=f"Best = {max(history['val_f1']):.4f}")
+            style_ax(ax2, "Validation F1", "F1 Score")
+
+            plt.tight_layout()
+            g2_path = os.path.join(OUTPUT_DIR, "graph_auc_f1.png")
+            plt.savefig(g2_path, dpi=200, bbox_inches="tight")
+            plt.close()
+            print(f"Saved: {g2_path}")
+
+        # ── Graph 3: Model Precision + Model Recall ───────────────────────────
+        if has_prec and has_recall:
+            fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(14, 5))
+
+            ax1.plot(epochs, history["precision"],     color=TRAIN_COLOR, linewidth=LINE_W, label="Train Precision")
+            ax1.plot(epochs, history["val_precision"], color=VAL_COLOR,   linewidth=LINE_W, label="Val Precision")
+            style_ax(ax1, "Model Precision", "Precision")
+
+            ax2.plot(epochs, history["recall"],     color=TRAIN_COLOR, linewidth=LINE_W, label="Train Recall")
+            ax2.plot(epochs, history["val_recall"], color=VAL_COLOR,   linewidth=LINE_W, label="Val Recall")
+            style_ax(ax2, "Model Recall", "Recall")
+
+            plt.tight_layout()
+            g3_path = os.path.join(OUTPUT_DIR, "graph_precision_recall.png")
+            plt.savefig(g3_path, dpi=200, bbox_inches="tight")
+            plt.close()
+            print(f"Saved: {g3_path}")
+
+    # -------------------------
+    # 8. Confusion matrix plots
     # -------------------------
     save_confusion_matrix(cm, ["Not Taken", "Taken"],
                           os.path.join(OUTPUT_DIR, "confusion_matrix_test.png"))
@@ -218,7 +307,7 @@ def main():
                           normalized=True)
 
     # -------------------------
-    # 8. Predictions CSV
+    # 9. Predictions CSV
     # -------------------------
     results_df = df_test.loc[mask].copy()
     results_df["prediction_probability"] = np.round(y_prob, 4)
@@ -232,7 +321,7 @@ def main():
     print(f"\nPredictions saved : {pred_path}")
 
     # -------------------------
-    # 9. Metrics txt
+    # 10. Metrics txt
     # -------------------------
     metrics_path = os.path.join(OUTPUT_DIR, "test_metrics.txt")
     with open(metrics_path, "w") as f:

@@ -1,0 +1,21 @@
+VALIDATION REPORT
+============================================================
+Val Loss  : 0.0416
+Val Acc   : 0.9507
+Val AUC   : 0.9651
+Threshold : 0.43
+Val F1    : 0.8862
+
+Confusion Matrix:
+[[353  12]
+ [  7  74]]
+
+Classification Report:
+              precision    recall  f1-score   support
+
+           0     0.9806    0.9671    0.9738       365
+           1     0.8605    0.9136    0.8862        81
+
+    accuracy                         0.9574       446
+   macro avg     0.9205    0.9404    0.9300       446
+weighted avg     0.9587    0.9574    0.9579       446
